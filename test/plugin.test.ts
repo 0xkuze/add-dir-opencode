@@ -71,6 +71,7 @@ async function createPlugin(client = mockClient()) {
     project: {} as PluginInput["project"],
     directory: PROJECT,
     worktree: PROJECT,
+    experimental_workspace: { register: () => {} },
     serverUrl: new URL("http://localhost:4096"),
     $: (() => {}) as unknown as PluginInput["$"],
   }

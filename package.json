@@ -29,7 +29,7 @@
   ],
   "scripts": {
     "build": "rm -rf dist && bun run build:server && bun run build:tui && bun x tsc --emitDeclarationOnly",
-    "build:server": "bun build ./src/index.ts --outdir ./dist --target node --format esm --external @opencode-ai/plugin --minify",
+    "build:server": "bun build ./src/index.ts --outdir ./dist --target node --format esm --external @opencode-ai/plugin --external @opencode/plugin --minify",
     "build:tui": "bun run ./scripts/build-tui.ts",
     "deploy": "rm -rf dist && bun run build:server && bun run build:tui",
     "test": "bun test",
@@ -48,6 +48,9 @@
     "url": "git+https://github.com/0xkuze/add-dir-opencode.git"
   },
   "license": "MIT",
+  "dependencies": {
+    "@opencode/plugin": "^2.0.16"
+  },
   "peerDependencies": {
     "@opencode-ai/plugin": ">=1.0.0",
     "@opentui/core": ">=0.1.92",

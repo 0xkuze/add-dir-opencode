@@ -19,10 +19,43 @@ interface TuiApi {
   }
 }
 
+interface V2KeymapCommand {
+  id?: string
+  title?: string
+  slash?: { name: string }
+}
+
+interface V2KeymapLayer {
+  mode?: string
+  commands?: readonly V2KeymapCommand[]
+}
+
+interface V2SlotClaim {
+  render: () => unknown
+}
+
+interface V2TuiContext {
+  keymap: {
+    layer: (input: () => V2KeymapLayer) => void
+  }
+  ui: {
+    slot: (claim: V2SlotClaim) => () => void
+  }
+}
+
 interface TuiModule {
   default: {
     id: string
     tui: (api: TuiApi) => Promise<void>
+    setup: (context: V2TuiContext) => Promise<void>
+  }
+}
+
+interface ServerModule {
+  default: {
+    id: string
+    server: () => Promise<unknown>
+    setup: (context: unknown) => Promise<unknown>
   }
 }
 
@@ -56,7 +89,20 @@ function parsePackFiles(content: string): string[] {
 
 function isTuiModule(value: unknown): value is TuiModule {
   if (!isRecord(value) || !isRecord(value.default)) return false
-  return typeof value.default.id === "string" && typeof value.default.tui === "function"
+  return (
+    typeof value.default.id === "string" &&
+    typeof value.default.tui === "function" &&
+    typeof value.default.setup === "function"
+  )
+}
+
+function isServerModule(value: unknown): value is ServerModule {
+  if (!isRecord(value) || !isRecord(value.default)) return false
+  return (
+    typeof value.default.id === "string" &&
+    typeof value.default.server === "function" &&
+    typeof value.default.setup === "function"
+  )
 }
 
 async function runCommand(command: string[]): Promise<CommandResult> {
@@ -124,5 +170,58 @@ describe("publishable package", () => {
       "list-dir",
       "remove-dir",
     ])
+  })
+
+  test("loads the TUI module's V2 setup and registers every slash command", async () => {
+    const moduleUrl = `${pathToFileURL(join(DIST, "tui.js")).href}?test=${Date.now()}`
+    const loaded: unknown = await import(moduleUrl)
+    if (!isTuiModule(loaded)) throw new Error("built TUI module has an invalid export")
+
+    let layer: V2KeymapLayer | undefined
+    const claims: V2SlotClaim[] = []
+    const context: V2TuiContext = {
+      keymap: {
+        layer(input): void {
+          layer = input()
+        },
+      },
+      ui: {
+        slot(claim): () => void {
+          claims.push(claim)
+          return () => {}
+        },
+      },
+    }
+    const cleanup = await loaded.default.setup(context)
+    expect(typeof cleanup).toBe("function")
+    expect(claims.length).toBe(1)
+
+    // The layer registers from inside the slot render, where the host
+    // provides the keymap Solid context.
+    claims[0]!.render()
+    expect(layer?.commands?.map((command) => command.slash?.name)).toEqual([
+      "add-dir",
+      "list-dir",
+      "remove-dir",
+    ])
+  })
+
+  test("loads the server module with both V1 and V2 entrypoints", async () => {
+    const moduleUrl = `${pathToFileURL(join(DIST, "index.js")).href}?test=${Date.now()}`
+    const loaded: unknown = await import(moduleUrl)
+    if (!isServerModule(loaded)) throw new Error("built server module has an invalid export")
+
+    expect(loaded.default.id).toBe("opencode-add-dir")
+    // V1 calls server(); V2 calls setup(). V1 hook coverage lives in
+    // plugin.test.ts; here we verify the dual shape and that V2 setup
+    // registers its hooks against a stub context.
+    expect(typeof loaded.default.server).toBe("function")
+    const registered: string[] = []
+    const registration = { dispose: async () => {} }
+    await loaded.default.setup({
+      permission: { hook: async () => registered.push("evaluate") || registration },
+      session: { hook: async () => registered.push("context") || registration },
+    } as unknown as Parameters<typeof loaded.default.setup>[0])
+    expect(registered).toEqual(["evaluate", "context"])
   })
 })
