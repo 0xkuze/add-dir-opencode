@@ -1,9 +1,15 @@
-import type { PluginModule } from "@opencode-ai/plugin"
+import { AddDirServerV2 } from "./v2-plugin.js"
 import { AddDirPlugin } from "./plugin.js"
 
-const plugin: PluginModule & { id: string } = {
-  id: "opencode-add-dir",
+/**
+ * Dual V1/V2 entrypoint.
+ *
+ * - OpenCode 2 reads `id` + `setup()` and ignores `server()`.
+ * - OpenCode 1 (>= 1.18.29) calls `server()` and ignores `setup()`.
+ *
+ * See https://opencode.ai/v2/docs/build/plugins/migrate-v1#support-v1
+ */
+export default {
+  ...AddDirServerV2,
   server: AddDirPlugin,
 }
-
-export default plugin

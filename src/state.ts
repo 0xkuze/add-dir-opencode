@@ -91,6 +91,10 @@ function stripJsonComments(text: string): string {
   return result
 }
 
+export function clearSessionDirs() {
+  try { unlinkSync(sessionFile()) } catch {}
+}
+
 function findTuiConfig(): string {
   for (const name of ["tui.jsonc", "tui.json"]) {
     const p = join(CONFIG_DIR, name)
@@ -100,7 +104,7 @@ function findTuiConfig(): string {
 }
 
 export function ensureTuiConfig() {
-  try { unlinkSync(sessionFile()) } catch {}
+  clearSessionDirs()
   try {
     if (!existsSync(CONFIG_DIR)) mkdirSync(CONFIG_DIR, { recursive: true })
 
