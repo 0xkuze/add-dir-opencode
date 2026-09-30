@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/0xkuze/add-dir-opencode/compare/v1.7.4...v1.8.0) (2026-09-30)
+
+
+### Features
+
+* support OpenCode v2 with interactive directory selection ([103b805](https://github.com/0xkuze/add-dir-opencode/commit/103b80515abf97c124b951f7d1a9e34f023da499))
+
 ## [1.7.4](https://github.com/0xkuze/add-dir-opencode/compare/v1.7.3...v1.7.4) (2026-07-21)
 
 ## [1.7.3](https://github.com/0xkuze/add-dir-opencode/compare/v1.7.2...v1.7.3) (2026-07-21)
