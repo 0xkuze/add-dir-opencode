@@ -116,7 +116,7 @@ bun run deploy      # server + TUI build without .d.ts emit (local use)
 ## State files (runtime, not in repo)
 
 - `$XDG_DATA_HOME|~/.local/share/opencode/add-dir/directories.json` — persisted dirs.
-- `.../session-dirs.json` — session-only dirs; deleted on every server plugin load.
+- `.../session-dirs.json` — session-only dirs; cleared once per server process and data directory. A process-wide startup marker preserves active dirs across plugin instances and module reloads.
 - `OPENCODE_ADDDIR_INJECT_CONTEXT=1` also injects `AGENTS.md`, `CLAUDE.md`,
   `.agents/AGENTS.md` from each added dir into the system prompt.
 

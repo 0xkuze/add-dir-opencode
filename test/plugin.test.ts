@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test"
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
-import { tmpdir } from "os"
+import { createTestEnvironment } from "./environment"
 import type { Config, Hooks, PluginInput } from "@opencode-ai/plugin"
 import { AddDirPlugin } from "../src/plugin"
 import { invalidateCache, expandHome, freshDirs, isChildOf, matchesDirs } from "../src/state"
@@ -10,9 +10,10 @@ import { collectAgentContext } from "../src/context"
 import type { ToolArgs } from "../src/types"
 import type { DirEntry } from "../src/state"
 
-const TMP = join(tmpdir(), "add-dir-test")
-const PROJECT = join(TMP, "project")
-const EXTERNAL = join(TMP, "external")
+let environment: ReturnType<typeof createTestEnvironment>
+let TMP: string
+let PROJECT: string
+let EXTERNAL: string
 
 interface PromptCall {
   path: { id: string }
@@ -94,14 +95,16 @@ function permissionEvent(id: string, sessionID: string, filepath: string, parent
 }
 
 beforeEach(() => {
+  environment = createTestEnvironment("add-dir-v1-test-")
+  TMP = environment.root
+  PROJECT = join(TMP, "project")
+  EXTERNAL = join(TMP, "external")
   mkdirSync(PROJECT, { recursive: true })
   mkdirSync(EXTERNAL, { recursive: true })
-  process.env["XDG_DATA_HOME"] = join(TMP, "data")
 })
 
 afterEach(() => {
-  rmSync(TMP, { recursive: true, force: true })
-  delete process.env["XDG_DATA_HOME"]
+  environment.cleanup()
   invalidateCache()
   resetGrantedSessions()
 })
@@ -248,7 +251,10 @@ describe("extractPath", () => {
 })
 
 describe("shouldGrantBeforeTool", () => {
-  const dirs = new Map<string, DirEntry>([[EXTERNAL, { path: EXTERNAL, persist: true }]])
+  let dirs: Map<string, DirEntry>
+  beforeEach(() => {
+    dirs = new Map([[EXTERNAL, { path: EXTERNAL, persist: true }]])
+  })
 
   test("returns true for file tool accessing added dir", () => {
     expect(shouldGrantBeforeTool(dirs, "read", { filePath: join(EXTERNAL, "f.ts") })).toBe(true)
@@ -367,6 +373,16 @@ describe("collectAgentContext", () => {
 // ── plugin.ts hooks ──
 
 describe("config hook", () => {
+  test("preserves session directories when another V1 instance starts", async () => {
+    const { hooks } = await createPlugin()
+    sessionDir(EXTERNAL)
+    await createPlugin()
+    const cfg = {} as Config
+    await hooks.config!(cfg)
+    const extDir = (cfg as Record<string, Record<string, Record<string, string>>>).permission.external_directory
+    expect(extDir[join(EXTERNAL, "*")]).toBe("allow")
+  })
+
   test("injects permission rules for persisted dirs", async () => {
     const { hooks } = await createPlugin()
     persistDir(EXTERNAL)

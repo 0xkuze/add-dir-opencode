@@ -61,7 +61,7 @@ The plugin has two parts: a **CLI/TUI plugin** for the interactive dialogs and a
 Handles all three slash commands via dialogs. Directories are stored in two files under `~/.local/share/opencode/add-dir/`:
 
 - **`directories.json`** — Persisted dirs, survive restarts.
-- **`session-dirs.json`** — Session-only dirs, cleared automatically on startup.
+- **`session-dirs.json`** — Session-only dirs, cleared once when the server process starts. Loading another plugin instance or reloading the plugin preserves active directories.
 
 Which file gets written depends on the "Remember across sessions" choice in `/add-dir`.
 

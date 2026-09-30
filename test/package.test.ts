@@ -1,11 +1,16 @@
-import { existsSync, readFileSync } from "fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { pathToFileURL } from "url"
 
-import { beforeAll, describe, expect, test } from "bun:test"
+import { beforeAll, beforeEach, afterEach, describe, expect, test } from "bun:test"
+import { createTestEnvironment } from "./environment"
 
 const ROOT = join(import.meta.dir, "..")
 const DIST = join(ROOT, "dist")
+let environment: ReturnType<typeof createTestEnvironment>
+
+beforeEach(() => { environment = createTestEnvironment("add-dir-package-test-") })
+afterEach(() => environment.cleanup())
 
 interface Command {
   value: string
@@ -218,10 +223,16 @@ describe("publishable package", () => {
     expect(typeof loaded.default.server).toBe("function")
     const registered: string[] = []
     const registration = { dispose: async () => {} }
+    const state = join(process.env["XDG_DATA_HOME"]!, "opencode", "add-dir")
+    mkdirSync(state, { recursive: true })
+    writeFileSync(join(state, "session-dirs.json"), JSON.stringify(["/old-session"]))
+    writeFileSync(join(state, "directories.json"), JSON.stringify(["/remembered"]))
     await loaded.default.setup({
       permission: { hook: async () => registered.push("evaluate") || registration },
       session: { hook: async () => registered.push("context") || registration },
     } as unknown as Parameters<typeof loaded.default.setup>[0])
     expect(registered).toEqual(["evaluate", "context"])
+    expect(existsSync(join(state, "session-dirs.json"))).toBe(false)
+    expect(JSON.parse(readFileSync(join(state, "directories.json"), "utf-8"))).toEqual(["/remembered"])
   })
 })

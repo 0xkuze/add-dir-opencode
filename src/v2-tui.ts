@@ -1,7 +1,7 @@
 import { Plugin } from "@opencode/plugin/tui"
 import type { Context } from "@opencode/plugin/tui/plugin"
 import type { DialogSelectOption } from "@opencode/plugin/tui/context"
-import { readdirSync } from "fs"
+import { readdir } from "fs/promises"
 import { basename, dirname, join } from "path"
 import { addDir, allDirs, removeDir, resolvePath, validate } from "./tui-state.js"
 
@@ -35,7 +35,7 @@ export const AddDirTuiV2 = Plugin.define({
               group: "Directories",
               palette: true,
               slash: { name: "add-dir" },
-              run: () => void runAddDir(context),
+              run: () => runCommand(context, () => runAddDir(context)),
             },
             {
               id: "opencode-add-dir.list",
@@ -44,7 +44,7 @@ export const AddDirTuiV2 = Plugin.define({
               group: "Directories",
               palette: true,
               slash: { name: "list-dir" },
-              run: () => void runListDirs(context),
+              run: () => runCommand(context, () => runListDirs(context)),
             },
             {
               id: "opencode-add-dir.remove",
@@ -53,7 +53,7 @@ export const AddDirTuiV2 = Plugin.define({
               group: "Directories",
               palette: true,
               slash: { name: "remove-dir" },
-              run: () => void runRemoveDir(context),
+              run: () => runCommand(context, () => runRemoveDir(context)),
             },
           ],
         }))
@@ -67,15 +67,23 @@ function toast(context: Context, variant: "info" | "success" | "error", message:
   context.ui.toast.show({ variant, message })
 }
 
-/** Non-hidden subdirectories of `dir`, sorted by name. Exported for tests. */
-export function listSubdirs(dir: string): string[] {
+async function runCommand(context: Context, command: () => Promise<void>) {
+  try { await command() }
+  catch (error) {
+    toast(context, "error", error instanceof Error ? error.message : String(error))
+  }
+}
+
+/** Non-hidden subdirectories of `dir`, sorted by name. */
+export async function listSubdirs(dir: string): Promise<string[]> {
   try {
-    return readdirSync(dir, { withFileTypes: true })
+    return (await readdir(dir, { withFileTypes: true }))
       .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
       .map((entry) => join(dir, entry.name))
       .sort()
-  } catch {
-    return []
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
+    throw error
   }
 }
 
@@ -91,7 +99,7 @@ async function browseDirectory(context: Context, start: string): Promise<string 
   for (;;) {
     const options: DialogSelectOption<string>[] = [
       { title: `✓ Add this directory — ${current}`, value: current, footer: "Confirm" },
-      ...listSubdirs(current).map((dir) => ({
+      ...(await listSubdirs(current)).map((dir) => ({
         title: `${basename(dir)}/`,
         value: dir,
         description: dir,
@@ -118,7 +126,7 @@ async function browseDirectory(context: Context, start: string): Promise<string 
         placeholder: "/path/to/directory",
         description: "Paste the absolute path of the directory to add.",
       })
-      return typed === undefined ? undefined : resolvePath(typed)
+      return typed
     }
     current = next
   }
@@ -126,11 +134,12 @@ async function browseDirectory(context: Context, start: string): Promise<string 
 
 async function runAddDir(context: Context) {
   const start = dirname(context.location?.directory ?? process.cwd())
-  const abs = await browseDirectory(context, start)
-  if (abs === undefined) return
+  const selected = await browseDirectory(context, start)
+  if (selected === undefined) return
 
-  const err = validate(abs)
+  const err = validate(selected)
   if (err) return toast(context, "error", err)
+  const abs = resolvePath(selected)
 
   const persist = await context.ui.dialog.select<boolean>({
     title: `Remember ${basename(abs)}?`,

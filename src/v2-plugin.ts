@@ -1,5 +1,5 @@
 import { Plugin } from "@opencode/plugin"
-import { clearSessionDirs, expandHome, freshDirs, matchesDirs } from "./state.js"
+import { initializeSessionDirs, expandHome, freshDirs, matchesDirs } from "./state.js"
 import { collectAgentContext } from "./context.js"
 
 /**
@@ -16,16 +16,16 @@ export const AddDirServerV2 = Plugin.define({
   id: "opencode-add-dir",
   async setup(ctx) {
     // Session-only directories do not survive an OpenCode restart.
-    clearSessionDirs()
+    initializeSessionDirs()
 
     await ctx.permission.hook("evaluate", (event) => {
-      if (event.action !== "external_directory") return
+      if (event.action !== "external_directory" || event.effect !== "ask") return
       const dirs = freshDirs()
       if (!dirs.size) return
 
       // Resources are canonical external-directory boundaries, normally
       // ending in `/*`. Strip the wildcard and match against added dirs.
-      const allowed = event.resources.some((resource) =>
+      const allowed = event.resources.length > 0 && event.resources.every((resource) =>
         matchesDirs(dirs, expandHome(resource.replace(/\/\*$/, ""))),
       )
       if (allowed) event.effect = "allow"
