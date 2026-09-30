@@ -33,12 +33,17 @@ Add the built `dist/` directory to your config — OpenCode 2 loads both the ser
 }
 ```
 
-On OpenCode 1, also add it to `tui.json` (or run `bun run deploy` once so the server plugin can self-register):
+On OpenCode 1, configure the server and TUI entries in their respective files:
 
 ```jsonc
+// ~/.config/opencode/opencode.json (OpenCode 1)
+{ "plugin": ["/path/to/add-dir-opencode/dist/index.js"] }
+
 // ~/.config/opencode/tui.json (OpenCode 1)
-{ "plugin": ["/path/to/add-dir-opencode/dist"] }
+{ "plugin": ["/path/to/add-dir-opencode/dist/tui.js"] }
 ```
+
+The server plugin can also register the TUI entry automatically when OpenCode 1 starts. Building with `bun run build` or `bun run deploy` alone does not update your configuration.
 
 </details>
 
@@ -48,7 +53,8 @@ All commands are interactive dialogs — type the command and select from autoco
 
 | Command | Dialog | Description |
 |---------|--------|-------------|
-| `/add-dir` | Directory browser | Browse from the current directory's parent: descend into subdirectories, go up with `..`, confirm with "✓ Add this directory", or pick "Type a path instead…". Then choose "This session only" or "Remember across sessions". |
+| `/add-dir` (OpenCode 2) | Directory browser | Browse from the current directory's parent: descend into subdirectories, go up with `..`, confirm with "✓ Add this directory", or pick "Type a path instead…". Then choose "This session only" or "Remember across sessions". |
+| `/add-dir` (OpenCode 1) | Text input + remember checkbox | Enter a directory path. Toggle "Remember across sessions" with Tab to persist it across restarts; leave it unchecked for this session only. |
 | `/list-dir` | Alert | Shows all added directories. |
 | `/remove-dir` | Select list + confirm | Pick a directory to remove, then confirm. |
 
