@@ -9,8 +9,8 @@ function stateDir() {
   )
 }
 
-function persistedFile() { return join(stateDir(), "directories.json") }
-function sessionFile() { return join(stateDir(), "session-dirs.json") }
+export function persistedFile() { return join(stateDir(), "directories.json") }
+export function sessionFile() { return join(stateDir(), "session-dirs.json") }
 
 export interface DirEntry {
   path: string
@@ -21,8 +21,17 @@ export function expandHome(p: string) {
   return p.startsWith("~/") ? (process.env["HOME"] || "~") + p.slice(1) : p
 }
 
-function readJsonArray(file: string): string[] {
-  try { return JSON.parse(readFileSync(file, "utf-8")) } catch { return [] }
+export function readJsonArray(file: string): string[] {
+  try {
+    const value: unknown = JSON.parse(readFileSync(file, "utf-8"))
+    return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : []
+  } catch { return [] }
+}
+
+export function writeJsonArray(file: string, items: string[]) {
+  mkdirSync(stateDir(), { recursive: true })
+  writeFileSync(file, JSON.stringify(items, null, 2))
+  invalidateCache()
 }
 
 function loadDirs(): Map<string, DirEntry> {
@@ -69,10 +78,12 @@ export function matchesDirs(dirs: Map<string, DirEntry>, filepath: string) {
 }
 
 const PKG = "opencode-add-dir"
-const CONFIG_DIR = join(
-  process.env["XDG_CONFIG_HOME"] || join(process.env["HOME"] || "~", ".config"),
-  "opencode",
-)
+function configDir() {
+  return join(
+    process.env["XDG_CONFIG_HOME"] || join(process.env["HOME"] || "~", ".config"),
+    "opencode",
+  )
+}
 
 function stripJsonComments(text: string): string {
   let result = ""
@@ -91,18 +102,34 @@ function stripJsonComments(text: string): string {
   return result
 }
 
+// Share the startup marker across plugin instances and module reloads.
+const SESSION_STARTUP = Symbol.for("opencode-add-dir.session-startup")
+const processState = globalThis as typeof globalThis & { [SESSION_STARTUP]?: Set<string> }
+
+export function initializeSessionDirs() {
+  const initialized = processState[SESSION_STARTUP] ??= new Set<string>()
+  const file = sessionFile()
+  if (initialized.has(file)) return
+  try { unlinkSync(file) }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+  }
+  initialized.add(file)
+  invalidateCache()
+}
+
 function findTuiConfig(): string {
   for (const name of ["tui.jsonc", "tui.json"]) {
-    const p = join(CONFIG_DIR, name)
+    const p = join(configDir(), name)
     if (existsSync(p)) return p
   }
-  return join(CONFIG_DIR, "tui.json")
+  return join(configDir(), "tui.json")
 }
 
 export function ensureTuiConfig() {
-  try { unlinkSync(sessionFile()) } catch {}
+  initializeSessionDirs()
   try {
-    if (!existsSync(CONFIG_DIR)) mkdirSync(CONFIG_DIR, { recursive: true })
+    mkdirSync(configDir(), { recursive: true })
 
     const filePath = findTuiConfig()
     let config: Record<string, unknown> = {}

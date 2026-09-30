@@ -17,6 +17,8 @@ const result = await Bun.build({
   external: [
     "@opencode-ai/plugin",
     "@opencode-ai/plugin/tui",
+    "@opencode/plugin",
+    "@opencode/plugin/tui",
     "@opentui/core",
     "@opentui/solid",
     "solid-js",

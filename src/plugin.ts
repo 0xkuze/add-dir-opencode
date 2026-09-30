@@ -4,9 +4,8 @@ import { permissionGlob, grantSession, shouldGrantBeforeTool, autoApprovePermiss
 import { collectAgentContext } from "./context.js"
 import type { SDK, PermissionEvent, ToolArgs } from "./types.js"
 
-ensureTuiConfig()
-
 export const AddDirPlugin: Plugin = async ({ client }) => {
+  ensureTuiConfig()
   const sdk: SDK = client
 
   return {
